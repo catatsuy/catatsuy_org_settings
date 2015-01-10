@@ -7,9 +7,9 @@
 
 ## setup
 
-[catatsuy/dotfiles](https://github.com/catatsuy/dotfiles)
+  * [catatsuy/dotfiles](https://github.com/catatsuy/dotfiles)
+  * [dotfiles/debian.sh](https://github.com/catatsuy/dotfiles/blob/master/debian.sh)
 
 ```
-sudo aptitude install nginx-full
-sudo aptitude install mosh
+sudo aptitude install nginx-full mosh postfix
 ```

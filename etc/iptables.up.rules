@@ -4,6 +4,7 @@
 :FORWARD ACCEPT [0:0]
 :OUTPUT ACCEPT [0:0]
 
+-A INPUT -i lo -j ACCEPT
 -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
 -A INPUT -p icmp -j ACCEPT
 -A INPUT -p tcp -m multiport --dport 80 -j ACCEPT

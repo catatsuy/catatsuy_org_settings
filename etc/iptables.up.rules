@@ -8,6 +8,7 @@
 -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
 -A INPUT -p icmp -j ACCEPT
 -A INPUT -p tcp -m multiport --dport 80 -j ACCEPT
+-A INPUT -p tcp -m multiport --dport 443 -j ACCEPT
 # ssh
 -A INPUT -p tcp --dport 11111 -j ACCEPT
 # mail

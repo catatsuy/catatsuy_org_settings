@@ -46,13 +46,13 @@ CHALLENGETYPE="dns-01"
 #DOMAINS_D=
 
 # Base directory for account key, generated certificates and list of domains (default: $SCRIPTDIR -- uses config directory if undefined)
-BASEDIR=/home/www/letsencrypt/ecdsa
+BASEDIR=/home/www/letsencrypt
 
 # File containing the list of domains to request certificates for (default: $BASEDIR/domains.txt)
 #DOMAINS_TXT="${BASEDIR}/domains.txt"
 
 # Output directory for generated certificates
-#CERTDIR="${BASEDIR}/certs"
+CERTDIR="${BASEDIR}/certs.ecdsa"
 
 # Output directory for alpn verification certificates
 #ALPNCERTDIR="${BASEDIR}/alpn-certs"

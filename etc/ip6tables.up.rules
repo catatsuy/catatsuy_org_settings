@@ -1,0 +1,13 @@
+*filter
+:INPUT DROP [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -6 -i lo -j ACCEPT
+-A INPUT -6 -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmpv6 -j ACCEPT
+-A INPUT -6 -p tcp --dport 80 -j ACCEPT
+-A INPUT -6 -p tcp --dport 443 -j ACCEPT
+-A INPUT -6 -p tcp --dport 11111 -j ACCEPT
+-A INPUT -6 -j DROP
+COMMIT
+

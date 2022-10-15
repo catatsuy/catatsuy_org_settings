@@ -1,224 +1,170 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
 
+#
+# Dehydrated hook script that employs cli53 to enable dns-01 challenges with AWS Route 53
+# - Will automatically identify the correct Route 53 zone for each domain name
+# - Supports certificates with alternative names in different Route 53 zones
+#
+# Aaron Roydhouse <aaron@roydhouse.com>, 2016
+# https://github.com/whereisaaron/dehydrated-route53-hook-script
+# Based on dehydrated hook.sh template
+#
+# Requires dehydrated (https://github.com/lukas2511/dehydrated)
+# Requires cli53 (https://github.com/barnybug/cli53)
+# Requires bash, jq, mailx, sed, xargs
+#
+# Requires AWS credentials with access to Route53, with permissions
+# to list zones, and to create and delete records in zones.
+#
+# Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables, or
+# Create ~/.aws/credentials file with [default] credentials, or
+# Set AWS_PROFILE to name of credentials entry in ~/.aws/credentials
+#
+# Neither dehydrated nor this script needs to run as root, so don't do it!
+#
+
+#
+# This hook is called once for every domain that needs to be
+# validated, including any alternative names you may have listed.
+#
+# Creates TXT record is appropriate Route53 domain, and waits for it to sync
+#
 deploy_challenge() {
     local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
-    # This hook is called once for every domain that needs to be
-    # validated, including any alternative names you may have listed.
-    #
-    # Parameters:
-    # - DOMAIN
-    #   The domain name (CN or subject alternative name) being
-    #   validated.
-    # - TOKEN_FILENAME
-    #   The name of the file containing the token to be served for HTTP
-    #   validation. Should be served by your web server as
-    #   /.well-known/acme-challenge/${TOKEN_FILENAME}.
-    # - TOKEN_VALUE
-    #   The token value that needs to be served for validation. For DNS
-    #   validation, this is what you want to put in the _acme-challenge
-    #   TXT record. For HTTP validation it is the value that is expected
-    #   be found in the $TOKEN_FILENAME file.
-
-    # Simple example: Use nsupdate with local named
-    # printf 'server 127.0.0.1\nupdate add _acme-challenge.%s 300 IN TXT "%s"\nsend\n' "${DOMAIN}" "${TOKEN_VALUE}" | nsupdate -k /var/run/named/session.key
-    echo "Creating challenge record for ${DOMAIN}"
-    zone=$(echo ${DOMAIN} | perl -p -e 's@^([a-z]+\.)?([a-z]+)\.([a-z]+)$@$2.$3@')
-    cli53 rrdelete --wait "${zone}" "_acme-challenge.${DOMAIN}." TXT || true
-    cli53 rrcreate --replace --wait "${zone}" "_acme-challenge.${DOMAIN}. 60 TXT ${TOKEN_VALUE}"
+    local ZONE=$(find_zone "${DOMAIN}")
+    
+    if [[ -n "$ZONE" ]]; then
+        echo "Creating challenge record for ${DOMAIN} in zone ${ZONE}"
+        cli53 rrcreate --append --wait "${ZONE}" "_acme-challenge.${DOMAIN}. 60 TXT ${TOKEN_VALUE}"
+    else
+        echo "Could not find zone for ${DOMAIN}"
+        exit 1
+    fi
 }
 
+#
+# This hook is called after attempting to validate each domain,
+# whether or not validation was successful. Here you can delete
+# files or DNS records that are no longer needed.
+#
+# Delete TXT record from appropriate Route53 domain, does not wait the deletion to sync
+#
 clean_challenge() {
     local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
-    # This hook is called after attempting to validate each domain,
-    # whether or not validation was successful. Here you can delete
-    # files or DNS records that are no longer needed.
+    local ZONE=$(find_zone "${DOMAIN}")
+    
+    if [[ -n "$ZONE" ]]; then
+        echo "Deleting challenge record for ${DOMAIN} from zone ${ZONE}"
+        cli53 rrdelete "${ZONE}" "_acme-challenge.${DOMAIN}." TXT
+    else
+        echo "Could not find zone for ${DOMAIN}"
+        exit 1
+    fi
+
     #
     # The parameters are the same as for deploy_challenge.
-
-    # Simple example: Use nsupdate with local named
-    # printf 'server 127.0.0.1\nupdate delete _acme-challenge.%s TXT "%s"\nsend\n' "${DOMAIN}" "${TOKEN_VALUE}" | nsupdate -k /var/run/named/session.key
 }
 
-sync_cert() {
-    local KEYFILE="${1}" CERTFILE="${2}" FULLCHAINFILE="${3}" CHAINFILE="${4}" REQUESTFILE="${5}"
-
-    # This hook is called after the certificates have been created but before
-    # they are symlinked. This allows you to sync the files to disk to prevent
-    # creating a symlink to empty files on unexpected system crashes.
-    #
-    # This hook is not intended to be used for further processing of certificate
-    # files, see deploy_cert for that.
-    #
-    # Parameters:
-    # - KEYFILE
-    #   The path of the file containing the private key.
-    # - CERTFILE
-    #   The path of the file containing the signed certificate.
-    # - FULLCHAINFILE
-    #   The path of the file containing the full certificate chain.
-    # - CHAINFILE
-    #   The path of the file containing the intermediate certificate(s).
-    # - REQUESTFILE
-    #   The path of the file containing the certificate signing request.
-
-    # Simple example: sync the files before symlinking them
-    # sync "${KEYFILE}" "${CERTFILE} "${FULLCHAINFILE}" "${CHAINFILE}" "${REQUESTFILE}"
-}
-
+#
+# This hook is called once for each certificate that has been
+# produced. Here you might, for instance, copy your new certificates
+# to service-specific locations and reload the service.
+#
 deploy_cert() {
     local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}" TIMESTAMP="${6}"
 
-    # This hook is called once for each certificate that has been
-    # produced. Here you might, for instance, copy your new certificates
-    # to service-specific locations and reload the service.
-    #
-    # Parameters:
-    # - DOMAIN
-    #   The primary domain name, i.e. the certificate common
-    #   name (CN).
-    # - KEYFILE
-    #   The path of the file containing the private key.
-    # - CERTFILE
-    #   The path of the file containing the signed certificate.
-    # - FULLCHAINFILE
-    #   The path of the file containing the full certificate chain.
-    # - CHAINFILE
-    #   The path of the file containing the intermediate certificate(s).
-    # - TIMESTAMP
-    #   Timestamp when the specified certificate was created.
-
-    # Simple example: Copy file to nginx config
-    # cp "${KEYFILE}" "${FULLCHAINFILE}" /etc/nginx/ssl/; chown -R nginx: /etc/nginx/ssl
-    # systemctl reload nginx
+    # NOP
 }
 
-deploy_ocsp() {
-    local DOMAIN="${1}" OCSPFILE="${2}" TIMESTAMP="${3}"
-
-    # This hook is called once for each updated ocsp stapling file that has
-    # been produced. Here you might, for instance, copy your new ocsp stapling
-    # files to service-specific locations and reload the service.
-    #
-    # Parameters:
-    # - DOMAIN
-    #   The primary domain name, i.e. the certificate common
-    #   name (CN).
-    # - OCSPFILE
-    #   The path of the ocsp stapling file
-    # - TIMESTAMP
-    #   Timestamp when the specified ocsp stapling file was created.
-
-    # Simple example: Copy file to nginx config
-    # cp "${OCSPFILE}" /etc/nginx/ssl/; chown -R nginx: /etc/nginx/ssl
-    # systemctl reload nginx
-}
-
-
+#
+# This hook is called once for each certificate that is still
+# valid and therefore wasn't reissued.
+#
 unchanged_cert() {
     local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}"
 
-    # This hook is called once for each certificate that is still
-    # valid and therefore wasn't reissued.
-    #
-    # Parameters:
-    # - DOMAIN
-    #   The primary domain name, i.e. the certificate common
-    #   name (CN).
-    # - KEYFILE
-    #   The path of the file containing the private key.
-    # - CERTFILE
-    #   The path of the file containing the signed certificate.
-    # - FULLCHAINFILE
-    #   The path of the file containing the full certificate chain.
-    # - CHAINFILE
-    #   The path of the file containing the intermediate certificate(s).
+    # NOP
 }
 
-invalid_challenge() {
+#
+# This hook is called if the challenge response has failed, so domain
+# owners can be aware and act accordingly.
+#
+function invalid_challenge {
     local DOMAIN="${1}" RESPONSE="${2}"
 
-    # This hook is called if the challenge response has failed, so domain
-    # owners can be aware and act accordingly.
-    #
-    # Parameters:
-    # - DOMAIN
-    #   The primary domain name, i.e. the certificate common
-    #   name (CN).
-    # - RESPONSE
-    #   The response that the verification server returned
+    local HOSTNAME="$(hostname)"
 
-    # Simple example: Send mail to root
-    # printf "Subject: Validation of ${DOMAIN} failed!\n\nOh noez!" | sendmail root
+    # Output error to stderr
+    (>&2 echo "Failed to issue SSL cert for ${DOMAIN}: ${RESPONSE}")
+
+    # Mail error to root user
+    mailx -s "Failed to issue SSL cert for ${DOMAIN} on ${HOSTNAME}" root <<-END
+      Failed to issue SSL cert for ${DOMAIN} on ${HOSTNAME}
+
+      Error from verification server:
+      ${RESPONSE}
+END
 }
 
-request_failure() {
-    local STATUSCODE="${1}" REASON="${2}" REQTYPE="${3}" HEADERS="${4}"
+#
+# Remove one level from the front of a domain name
+# Returns the rest of the domain name (success), or blank if nothing left (fail)
+#
+function get_base_name() {
+    local HOSTNAME="${1}"
 
-    # This hook is called when an HTTP request fails (e.g., when the ACME
-    # server is busy, returns an error, etc). It will be called upon any
-    # response code that does not start with '2'. Useful to alert admins
-    # about problems with requests.
-    #
-    # Parameters:
-    # - STATUSCODE
-    #   The HTML status code that originated the error.
-    # - REASON
-    #   The specified reason for the error.
-    # - REQTYPE
-    #   The kind of request that was made (GET, POST...)
-    # - HEADERS
-    #   HTTP headers returned by the CA
-
-    # Simple example: Send mail to root
-    # printf "Subject: HTTP request failed failed!\n\nA http request failed with status ${STATUSCODE}!" | sendmail root
+    if [[ "$HOSTNAME" == *"."* ]]; then
+      HOSTNAME="${HOSTNAME#*.}"
+      echo "$HOSTNAME"
+      return 0
+    else
+      echo ""
+      return 1
+    fi
 }
 
-generate_csr() {
-    local DOMAIN="${1}" CERTDIR="${2}" ALTNAMES="${3}"
+#
+# Find the Route53 zone for this domain name
+# Prefers the longest match, e.g. if creating 'a.b.foo.baa.com',
+# a 'foo.baa.com' zone will be preferred over a 'baa.com' zone
+# Returns the zone name (success) or nothing (fail)
+#
+function find_zone() {
+  local DOMAIN="${1}"
 
-    # This hook is called before any certificate signing operation takes place.
-    # It can be used to generate or fetch a certificate signing request with external
-    # tools.
-    # The output should be just the cerificate signing request formatted as PEM.
-    #
-    # Parameters:
-    # - DOMAIN
-    #   The primary domain as specified in domains.txt. This does not need to
-    #   match with the domains in the CSR, it's basically just the directory name.
-    # - CERTDIR
-    #   Certificate output directory for this particular certificate. Can be used
-    #   for storing additional files.
-    # - ALTNAMES
-    #   All domain names for the current certificate as specified in domains.txt.
-    #   Again, this doesn't need to match with the CSR, it's just there for convenience.
+  local ZONELIST=$(cli53 list -format json | jq --raw-output '.[].Name' | sed -e 's/\.$//' | xargs echo -n)
 
-    # Simple example: Look for pre-generated CSRs
-    # if [ -e "${CERTDIR}/pre-generated.csr" ]; then
-    #   cat "${CERTDIR}/pre-generated.csr"
-    # fi
+  local TESTDOMAIN="${DOMAIN}"
+
+  while [[ -n "$TESTDOMAIN" ]]; do
+    for zone in $ZONELIST; do
+      if [[ "$zone" == "$TESTDOMAIN" ]]; then
+        echo "$zone"
+        return 0
+      fi
+    done
+    TESTDOMAIN=$(get_base_name "$TESTDOMAIN")
+  done
+
+  return 1
 }
 
-startup_hook() {
-  # This hook is called before the cron command to do some initial tasks
-  # (e.g. starting a webserver).
-
+#
+# This hook is called at the end of a dehydrated command and can be used
+# to do some final (cleanup or other) tasks.
+#
+exit_hook() {
   :
 }
 
-exit_hook() {
-  local ERROR="${1:-}"
-
-  # This hook is called at the end of the cron command and can be used to
-  # do some final (cleanup or other) tasks.
-  #
-  # Parameters:
-  # - ERROR
-  #   Contains error message if dehydrated exits with error
-}
-
 HANDLER="$1"; shift
-if [[ "${HANDLER}" =~ ^(deploy_challenge|clean_challenge|sync_cert|deploy_cert|deploy_ocsp|unchanged_cert|invalid_challenge|request_failure|generate_csr|startup_hook|exit_hook)$ ]]; then
+if [[ "${HANDLER}" =~ ^(deploy_challenge|clean_challenge|deploy_cert|unchanged_cert|invalid_challenge|request_failure|exit_hook)$ ]]; then
   "$HANDLER" "$@"
+else
+  # Dealing with this_hookscript_is_broken__dehydrated_is_working_fine__please_ignore_unknown_hooks_in_your_script
+  exit 0
 fi

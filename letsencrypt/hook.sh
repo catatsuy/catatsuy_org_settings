@@ -34,10 +34,9 @@ deploy_challenge() {
     local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
     local ZONE=$(find_zone "${DOMAIN}")
-    
     if [[ -n "$ZONE" ]]; then
         echo "Creating challenge record for ${DOMAIN} in zone ${ZONE}"
-        cli53 rrcreate --append --wait "${ZONE}" "_acme-challenge.${DOMAIN}. 60 TXT ${TOKEN_VALUE}"
+        flarectl dns update --zone "${ZONE}" --id $(flarectl -json dns list --zone "${ZONE}" | jq --raw-output ".[] | select (.Name | startswith(\"_acme-challenge.${DOMAIN}\")).ID") --type TXT --content "${TOKEN_VALUE}"
     else
         echo "Could not find zone for ${DOMAIN}"
         exit 1
@@ -55,10 +54,10 @@ clean_challenge() {
     local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
 
     local ZONE=$(find_zone "${DOMAIN}")
-    
+
     if [[ -n "$ZONE" ]]; then
         echo "Deleting challenge record for ${DOMAIN} from zone ${ZONE}"
-        cli53 rrdelete "${ZONE}" "_acme-challenge.${DOMAIN}." TXT
+        flarectl dns update --zone "${ZONE}" --id $(flarectl -json dns list --zone "${ZONE}" | jq --raw-output ".[] | select (.Name | startswith(\"_acme-challenge.${DOMAIN}\")).ID") --type TXT --content "empty"
     else
         echo "Could not find zone for ${DOMAIN}"
         exit 1
@@ -99,7 +98,7 @@ function invalid_challenge {
     local HOSTNAME="$(hostname)"
 
     # Output error to stderr
-    (>&2 echo "Failed to issue SSL cert for ${DOMAIN}: ${RESPONSE}")
+    (echo >&2 "Failed to issue SSL cert for ${DOMAIN}: ${RESPONSE}")
 
     # Mail error to root user
     mailx -s "Failed to issue SSL cert for ${DOMAIN} on ${HOSTNAME}" root <<-END
@@ -118,12 +117,12 @@ function get_base_name() {
     local HOSTNAME="${1}"
 
     if [[ "$HOSTNAME" == *"."* ]]; then
-      HOSTNAME="${HOSTNAME#*.}"
-      echo "$HOSTNAME"
-      return 0
+        HOSTNAME="${HOSTNAME#*.}"
+        echo "$HOSTNAME"
+        return 0
     else
-      echo ""
-      return 1
+        echo ""
+        return 1
     fi
 }
 
@@ -134,23 +133,23 @@ function get_base_name() {
 # Returns the zone name (success) or nothing (fail)
 #
 function find_zone() {
-  local DOMAIN="${1}"
+    local DOMAIN="${1}"
 
-  local ZONELIST=$(cli53 list -format json | jq --raw-output '.[].Name' | sed -e 's/\.$//' | xargs echo -n)
+    local ZONELIST="catatsuy.org matw.co"
 
-  local TESTDOMAIN="${DOMAIN}"
+    local TESTDOMAIN="${DOMAIN}"
 
-  while [[ -n "$TESTDOMAIN" ]]; do
-    for zone in $ZONELIST; do
-      if [[ "$zone" == "$TESTDOMAIN" ]]; then
-        echo "$zone"
-        return 0
-      fi
+    while [[ -n "$TESTDOMAIN" ]]; do
+        for zone in $ZONELIST; do
+            if [[ "$zone" == "$TESTDOMAIN" ]]; then
+                echo "$zone"
+                return 0
+            fi
+        done
+        TESTDOMAIN=$(get_base_name "$TESTDOMAIN")
     done
-    TESTDOMAIN=$(get_base_name "$TESTDOMAIN")
-  done
 
-  return 1
+    return 1
 }
 
 #
@@ -158,13 +157,14 @@ function find_zone() {
 # to do some final (cleanup or other) tasks.
 #
 exit_hook() {
-  :
+    :
 }
 
-HANDLER="$1"; shift
+HANDLER="$1"
+shift
 if [[ "${HANDLER}" =~ ^(deploy_challenge|clean_challenge|deploy_cert|unchanged_cert|invalid_challenge|request_failure|exit_hook)$ ]]; then
-  "$HANDLER" "$@"
+    "$HANDLER" "$@"
 else
-  # Dealing with this_hookscript_is_broken__dehydrated_is_working_fine__please_ignore_unknown_hooks_in_your_script
-  exit 0
+    # Dealing with this_hookscript_is_broken__dehydrated_is_working_fine__please_ignore_unknown_hooks_in_your_script
+    exit 0
 fi

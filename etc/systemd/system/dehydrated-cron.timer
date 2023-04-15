@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer for dehydrated RSA
+
+[Timer]
+OnCalendar=*-*-1 01:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

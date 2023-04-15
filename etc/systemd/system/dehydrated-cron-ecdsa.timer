@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer for dehydrated ECDSA
+
+[Timer]
+OnCalendar=*-*-1 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

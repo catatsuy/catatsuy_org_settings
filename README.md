@@ -7,7 +7,8 @@
 
 ## TLS certificate
 
-```
-/home/catatsuy/dehydrated/dehydrated --cron --config /home/catatsuy/catatsuy_org_settings/letsencrypt/config --hook /home/catatsuy/catatsuy_org_settings/letsencrypt/hook.sh
-/home/catatsuy/dehydrated/dehydrated --cron --config /home/catatsuy/catatsuy_org_settings/letsencrypt/config.ecdsa --hook /home/catatsuy/catatsuy_org_settings/letsencrypt/hook.sh
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable dehydrated-cron.timer dehydrated-cron-ecdsa.timer nginx-restart.timer
+sudo systemctl start dehydrated-cron.timer dehydrated-cron-ecdsa.timer nginx-restart.timer
 ```

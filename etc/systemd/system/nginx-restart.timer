@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer for nginx restart
+
+[Timer]
+OnCalendar=*-*-1 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

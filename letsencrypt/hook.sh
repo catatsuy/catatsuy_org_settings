@@ -36,7 +36,8 @@ deploy_challenge() {
     local ZONE=$(find_zone "${DOMAIN}")
     if [[ -n "$ZONE" ]]; then
         echo "Creating challenge record for ${DOMAIN} in zone ${ZONE}"
-        flarectl dns update --zone "${ZONE}" --id $(flarectl -json dns list --zone "${ZONE}" | jq --raw-output ".[] | select (.Name | startswith(\"_acme-challenge.${DOMAIN}\")).ID") --type TXT --content "${TOKEN_VALUE}"
+        flarectl dns update --zone "${ZONE}" --id $(flarectl -json dns list --zone "${ZONE}" | jq --raw-output ".[] | select (.Name | startswith(\"_acme-challenge.${DOMAIN}\")).ID") --ttl 60 --type TXT --content "${TOKEN_VALUE}"
+        sleep 65
     else
         echo "Could not find zone for ${DOMAIN}"
         exit 1
@@ -57,7 +58,8 @@ clean_challenge() {
 
     if [[ -n "$ZONE" ]]; then
         echo "Deleting challenge record for ${DOMAIN} from zone ${ZONE}"
-        flarectl dns update --zone "${ZONE}" --id $(flarectl -json dns list --zone "${ZONE}" | jq --raw-output ".[] | select (.Name | startswith(\"_acme-challenge.${DOMAIN}\")).ID") --type TXT --content "empty"
+        flarectl dns update --zone "${ZONE}" --id $(flarectl -json dns list --zone "${ZONE}" | jq --raw-output ".[] | select (.Name | startswith(\"_acme-challenge.${DOMAIN}\")).ID") --ttl 60 --type TXT --content "empty"
+        sleep 65
     else
         echo "Could not find zone for ${DOMAIN}"
         exit 1

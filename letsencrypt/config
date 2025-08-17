@@ -125,3 +125,9 @@ KEY_ALGO=rsa
 
 # ACME API version (default: auto)
 #API=auto
+
+# Preferred issuer chain (default: <unset> -> uses default chain)
+#PREFERRED_CHAIN=
+
+# Request certificate with specific profile (default: <unset>)
+ACME_PROFILE=tlsserver

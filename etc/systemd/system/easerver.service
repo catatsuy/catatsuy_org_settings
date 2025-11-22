@@ -1,0 +1,16 @@
+[Unit]
+Description=Simple Go HTTP Server (easerver)
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+
+Environment=WORKDIR=/home/www/www.catatsuy.org
+
+ExecStart=/home/catatsuy/easerver_linux
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

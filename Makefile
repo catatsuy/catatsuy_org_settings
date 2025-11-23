@@ -1,4 +1,4 @@
-.PHONY: all easerver easerver_linux clean
+.PHONY: all clean
 
 all: easerver easerver_linux
 

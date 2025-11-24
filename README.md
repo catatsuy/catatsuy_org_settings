@@ -12,3 +12,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable dehydrated-cron.timer dehydrated-cron-ecdsa.timer nginx-restart.timer
 sudo systemctl start dehydrated-cron.timer dehydrated-cron-ecdsa.timer nginx-restart.timer
 ```
+
+## apt upgrade
+
+```bash
+% sudo apt-mark hold nginx
+```

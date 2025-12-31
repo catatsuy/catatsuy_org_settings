@@ -1,0 +1,24 @@
+# Stop dance for nginx (systemd + nginx signals)
+# =============================================
+#
+# nginx signals reference:
+# http://nginx.org/en/docs/control.html
+[Unit]
+Description=nginx (custom build)
+Documentation=man:nginx(8)
+After=network-online.target remote-fs.target nss-lookup.target
+Wants=network-online.target
+#ConditionFileIsExecutable=/usr/sbin/nginx
+
+[Service]
+Type=simple
+ExecStartPre=/usr/sbin/nginx -t -q
+ExecStart=/usr/sbin/nginx -g 'daemon off; master_process on;'
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -QUIT $MAINPID
+TimeoutStopSec=5
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
+

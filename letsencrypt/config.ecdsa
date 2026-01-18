@@ -130,4 +130,5 @@ KEY_ALGO=secp384r1
 #PREFERRED_CHAIN=
 
 # Request certificate with specific profile (default: <unset>)
-ACME_PROFILE=tlsserver
+#ACME_PROFILE=tlsserver
+ACME_PROFILE=shortlived

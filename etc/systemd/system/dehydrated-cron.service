@@ -6,5 +6,4 @@ User=www
 Group=www
 Type=oneshot
 EnvironmentFile=/home/catatsuy/environ
-ExecStart=/home/catatsuy/dehydrated/dehydrated --cron --config /home/catatsuy/catatsuy_org_settings/letsencrypt/config --hook /home/catatsuy/catatsuy_org_settings/letsencrypt/hook.sh
-
+ExecStart=/home/catatsuy/catatsuy_org_settings/letsencrypt/cert_rsa.sh
